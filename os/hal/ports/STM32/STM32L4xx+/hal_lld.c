@@ -267,7 +267,7 @@ void stm32_clock_init(void) {
   RCC->CSR |= STM32_MSISRANGE;
 
 #if STM32_ACTIVATE_PLL || STM32_ACTIVATE_PLLSAI1 || STM32_ACTIVATE_PLLSAI2
-  /* PLLM and PLLSRC are common to all PLLs.*/
+  /* PLLSRC is common to all PLLs.*/
   RCC->PLLCFGR = STM32_PLLPDIV | STM32_PLLR  |
                  STM32_PLLREN  | STM32_PLLQ  |
                  STM32_PLLQEN  | STM32_PLLP  |
@@ -315,26 +315,38 @@ void stm32_clock_init(void) {
   RCC->CFGR = STM32_MCOPRE | STM32_MCOSEL | STM32_STOPWUCK |
               STM32_PPRE2  | STM32_PPRE1  | STM32_HPRE;
 
-  /* CCIPR register initialization, note, must take care of the _OFF
+  /* CCIPR register initialization.*/
+  {
+    uint32_t ccipr =                                      STM32_ADCSEL    |
+                     STM32_CLK48SEL   | STM32_LPTIM2SEL | STM32_LPTIM1SEL |
+                     STM32_I2C3SEL    | STM32_I2C2SEL   | STM32_I2C1SEL   |
+                     STM32_LPUART1SEL | STM32_UART5SEL  | STM32_UART4SEL  |
+                     STM32_USART3SEL  | STM32_USART2SEL | STM32_USART1SEL;
+    RCC->CCIPR = ccipr;
+  }
+
+  /* CCIPR2 register initialization, note, must take care of the _OFF
      pseudo settings.*/
   {
-    uint32_t ccipr = STM32_DFSDMSEL  |                   STM32_ADCSEL    |
-                     STM32_CLK48SEL  | STM32_LPTIM2SEL | STM32_LPTIM1SEL |
-                     STM32_I2C3SEL   | STM32_I2C2SEL   | STM32_I2C1SEL   |
-                     STM32_UART5SEL  | STM32_UART4SEL  | STM32_USART3SEL |
-                     STM32_USART2SEL | STM32_USART1SEL | STM32_LPUART1SEL;
+    uint32_t ccipr = STM32_OSPISEL    | STM32_PLLSAI2DIVR |
+                     STM32_SDMMCSEL   | STM32_DSISEL    | STM32_ADFSDMSEL |
+                     STM32_DFSDMSEL   | STM32_I2C4SEL;
 #if STM32_SAI2SEL != STM32_SAI2SEL_OFF
     ccipr |= STM32_SAI2SEL;
 #endif
 #if STM32_SAI1SEL != STM32_SAI1SEL_OFF
     ccipr |= STM32_SAI1SEL;
 #endif
-    RCC->CCIPR = ccipr;
+    RCC->CCIPR2 = ccipr;
   }
 
   /* Set flash WS's for SYSCLK source */
-  if (STM32_FLASHBITS > STM32_MSI_FLASHBITS)
+  if (STM32_FLASHBITS > STM32_MSI_FLASHBITS) {
     FLASH->ACR = (FLASH->ACR & ~FLASH_ACR_LATENCY_Msk) | STM32_FLASHBITS;
+    while ((FLASH->ACR & FLASH_ACR_LATENCY_Msk) !=
+           (STM32_FLASHBITS & FLASH_ACR_LATENCY_Msk)) {
+    }
+  }
 
   /* Switching to the configured SYSCLK source if it is different from MSI.*/
 #if (STM32_SW != STM32_SW_MSI)
@@ -345,8 +357,12 @@ void stm32_clock_init(void) {
 #endif
 
   /* Reduce the flash WS's for SYSCLK source if they are less than MSI WSs */
-  if (STM32_FLASHBITS < STM32_MSI_FLASHBITS)
+  if (STM32_FLASHBITS < STM32_MSI_FLASHBITS) {
     FLASH->ACR = (FLASH->ACR & ~FLASH_ACR_LATENCY_Msk) | STM32_FLASHBITS;
+    while ((FLASH->ACR & FLASH_ACR_LATENCY_Msk) !=
+           (STM32_FLASHBITS & FLASH_ACR_LATENCY_Msk)) {
+    }
+  }
 
 #endif /* STM32_NO_INIT */
 

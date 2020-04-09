@@ -21,239 +21,173 @@
  * @file    oslib_test_sequence_005.c
  * @brief   Test Sequence 005 code.
  *
- * @page oslib_test_sequence_005 [5] Memory Heaps
+ * @page oslib_test_sequence_005 [5] Thread Delegates
  *
  * File: @ref oslib_test_sequence_005.c
  *
  * <h2>Description</h2>
  * This sequence tests the ChibiOS library functionalities related to
- * memory heaps.
+ * Thread Delegates.
  *
  * <h2>Conditions</h2>
  * This sequence is only executed if the following preprocessor condition
  * evaluates to true:
- * - CH_CFG_USE_HEAP
+ * - CH_CFG_USE_DELEGATES
  * .
  *
  * <h2>Test Cases</h2>
  * - @subpage oslib_test_005_001
- * - @subpage oslib_test_005_002
  * .
  */
 
-#if (CH_CFG_USE_HEAP) || defined(__DOXYGEN__)
+#if (CH_CFG_USE_DELEGATES) || defined(__DOXYGEN__)
 
 /****************************************************************************
  * Shared code.
  ****************************************************************************/
 
-#define ALLOC_SIZE 16
-#define HEAP_SIZE (ALLOC_SIZE * 8)
+static bool exit_flag;
 
-static memory_heap_t test_heap;
-static uint8_t test_heap_buffer[HEAP_SIZE];
+static int dis_func0(void) {
+
+  test_emit_token('0');
+
+  return (msg_t)0x55AA;
+}
+
+static msg_t dis_func1(msg_t a) {
+
+  test_emit_token((char)a);
+
+  return (msg_t)a;
+}
+
+static msg_t dis_func2(msg_t a, msg_t b) {
+
+  test_emit_token((char)a);
+  test_emit_token((char)b);
+
+  return (msg_t)a;
+}
+
+static msg_t dis_func3(msg_t a, msg_t b, msg_t c) {
+
+  test_emit_token((char)a);
+  test_emit_token((char)b);
+  test_emit_token((char)c);
+
+  return (msg_t)a;
+}
+
+static msg_t dis_func4(msg_t a, msg_t b, msg_t c, msg_t d) {
+
+  test_emit_token((char)a);
+  test_emit_token((char)b);
+  test_emit_token((char)c);
+  test_emit_token((char)d);
+
+  return (msg_t)a;
+}
+
+static int dis_func_end(void) {
+
+  test_emit_token('Z');
+  exit_flag = true;
+
+  return (msg_t)0xAA55;
+}
+
+static THD_WORKING_AREA(waThread1, 256);
+static THD_FUNCTION(Thread1, arg) {
+
+  (void)arg;
+
+  exit_flag = false;
+  do {
+    chDelegateDispatch();
+  } while (!exit_flag);
+
+  chThdExit(0x0FA5);
+}
 
 /****************************************************************************
  * Test cases.
  ****************************************************************************/
 
 /**
- * @page oslib_test_005_001 [5.1] Allocation and fragmentation
+ * @page oslib_test_005_001 [5.1] Dispatcher test
  *
  * <h2>Description</h2>
- * Series of allocations/deallocations are performed in carefully
- * designed sequences in order to stimulate all the possible code paths
- * inside the allocator. The test expects to find the heap back to the
- * initial status after each sequence.
+ * The dispatcher API is tested for functionality.
  *
  * <h2>Test Steps</h2>
- * - [5.1.1] Testing initial conditions, the heap must not be
- *   fragmented and one free block present.
- * - [5.1.2] Trying to allocate an block bigger than available space,
- *   an error is expected.
- * - [5.1.3] Single block allocation using chHeapAlloc() then the block
- *   is freed using chHeapFree(), must not fail.
- * - [5.1.4] Using chHeapStatus() to assess the heap state. There must
- *   be at least one free block of sufficient size.
- * - [5.1.5] Allocating then freeing in the same order.
- * - [5.1.6] Allocating then freeing in reverse order.
- * - [5.1.7] Small fragments handling. Checking the behavior when
- *   allocating blocks with size not multiple of alignment unit.
- * - [5.1.8] Skipping a fragment, the first fragment in the list is too
- *   small so the allocator must pick the second one.
- * - [5.1.9] Allocating the whole available space.
- * - [5.1.10] Testing final conditions. The heap geometry must be the
- *   same than the one registered at beginning.
+ * - [5.1.1] Starting the dispatcher thread.
+ * - [5.1.2] Calling the default veneers, checking the result and the
+ *   emitted tokens.
+ * - [5.1.3] Waiting for the thread to terminate-.
  * .
  */
 
-static void oslib_test_005_001_setup(void) {
-  chHeapObjectInit(&test_heap, test_heap_buffer, sizeof(test_heap_buffer));
-}
-
 static void oslib_test_005_001_execute(void) {
-  void *p1, *p2, *p3;
-  size_t n, sz;
+  thread_t *tp;
 
-  /* [5.1.1] Testing initial conditions, the heap must not be
-     fragmented and one free block present.*/
+  /* [5.1.1] Starting the dispatcher thread.*/
   test_set_step(1);
   {
-    test_assert(chHeapStatus(&test_heap, &sz, NULL) == 1, "heap fragmented");
+    thread_descriptor_t td = {
+      .name  = "dispatcher",
+      .wbase = waThread1,
+      .wend  = THD_WORKING_AREA_END(waThread1),
+      .prio  = chThdGetPriorityX() + 1,
+      .funcp = Thread1,
+      .arg   = NULL
+    };
+    tp = chThdCreate(&td);
   }
+  test_end_step(1);
 
-  /* [5.1.2] Trying to allocate an block bigger than available space,
-     an error is expected.*/
+  /* [5.1.2] Calling the default veneers, checking the result and the
+     emitted tokens.*/
   test_set_step(2);
   {
-    p1 = chHeapAlloc(&test_heap, sizeof test_heap_buffer * 2);
-    test_assert(p1 == NULL, "allocation not failed");
-  }
+    int retval;
 
-  /* [5.1.3] Single block allocation using chHeapAlloc() then the block
-     is freed using chHeapFree(), must not fail.*/
+    retval = chDelegateCallDirect0(tp, (delegate_fn0_t)dis_func0);
+    test_assert(retval == 0x55AA, "invalid return value");
+
+    retval = chDelegateCallDirect1(tp, (delegate_fn1_t)dis_func1, 'A');
+    test_assert(retval == (int)'A', "invalid return value");
+
+    retval = chDelegateCallDirect2(tp, (delegate_fn2_t)dis_func2, 'B', 'C');
+    test_assert(retval == (int)'B', "invalid return value");
+
+    retval = chDelegateCallDirect3(tp, (delegate_fn3_t)dis_func3, 'D', 'E', 'F');
+    test_assert(retval == (int)'D', "invalid return value");
+
+    retval = chDelegateCallDirect4(tp, (delegate_fn4_t)dis_func4, 'G', 'H', 'I', 'J');
+    test_assert(retval == (int)'G', "invalid return value");
+
+    retval = chDelegateCallDirect0(tp, (delegate_fn0_t)dis_func_end);
+    test_assert(retval == 0xAA55, "invalid return value");
+
+    test_assert_sequence("0ABCDEFGHIJZ", "unexpected tokens");
+  }
+  test_end_step(2);
+
+  /* [5.1.3] Waiting for the thread to terminate-.*/
   test_set_step(3);
   {
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    test_assert(p1 != NULL, "allocation failed");
-    chHeapFree(p1);
+    msg_t msg = chThdWait(tp);
+    test_assert(msg == 0x0FA5, "invalid exit code");
   }
-
-  /* [5.1.4] Using chHeapStatus() to assess the heap state. There must
-     be at least one free block of sufficient size.*/
-  test_set_step(4);
-  {
-    size_t total_size, largest_size;
-
-    n = chHeapStatus(&test_heap, &total_size, &largest_size);
-    test_assert(n == 1, "missing free block");
-    test_assert(total_size >= ALLOC_SIZE, "unexpected heap state");
-    test_assert(total_size == largest_size, "unexpected heap state");
-  }
-
-  /* [5.1.5] Allocating then freeing in the same order.*/
-  test_set_step(5);
-  {
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    p2 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    p3 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    chHeapFree(p1);                                 /* Does not merge.*/
-    chHeapFree(p2);                                 /* Merges backward.*/
-    chHeapFree(p3);                                 /* Merges both sides.*/
-    test_assert(chHeapStatus(&test_heap, &n, NULL) == 1, "heap fragmented");
-  }
-
-  /* [5.1.6] Allocating then freeing in reverse order.*/
-  test_set_step(6);
-  {
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    p2 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    p3 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    chHeapFree(p3);                                 /* Merges forward.*/
-    chHeapFree(p2);                                 /* Merges forward.*/
-    chHeapFree(p1);                                 /* Merges forward.*/
-    test_assert(chHeapStatus(&test_heap, &n, NULL) == 1, "heap fragmented");
-  }
-
-  /* [5.1.7] Small fragments handling. Checking the behavior when
-     allocating blocks with size not multiple of alignment unit.*/
-  test_set_step(7);
-  {
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE + 1);
-    p2 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    chHeapFree(p1);
-    test_assert(chHeapStatus(&test_heap, &n, NULL) == 2, "invalid state");
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    /* Note, the first situation happens when the alignment size is smaller
-       than the header size, the second in the other cases.*/
-    test_assert((chHeapStatus(&test_heap, &n, NULL) == 1) ||
-                (chHeapStatus(&test_heap, &n, NULL) == 2), "heap fragmented");
-    chHeapFree(p2);
-    chHeapFree(p1);
-    test_assert(chHeapStatus(&test_heap, &n, NULL) == 1, "heap fragmented");
-  }
-
-  /* [5.1.8] Skipping a fragment, the first fragment in the list is too
-     small so the allocator must pick the second one.*/
-  test_set_step(8);
-  {
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    p2 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    chHeapFree(p1);
-    test_assert( chHeapStatus(&test_heap, &n, NULL) == 2, "invalid state");
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE * 2); /* Skips first fragment.*/
-    chHeapFree(p1);
-    chHeapFree(p2);
-    test_assert(chHeapStatus(&test_heap, &n, NULL) == 1, "heap fragmented");
-  }
-
-  /* [5.1.9] Allocating the whole available space.*/
-  test_set_step(9);
-  {
-    (void)chHeapStatus(&test_heap, &n, NULL);
-    p1 = chHeapAlloc(&test_heap, n);
-    test_assert(p1 != NULL, "allocation failed");
-    test_assert(chHeapStatus(&test_heap, NULL, NULL) == 0, "not empty");
-    chHeapFree(p1);
-  }
-
-  /* [5.1.10] Testing final conditions. The heap geometry must be the
-     same than the one registered at beginning.*/
-  test_set_step(10);
-  {
-    test_assert(chHeapStatus(&test_heap, &n, NULL) == 1, "heap fragmented");
-    test_assert(n == sz, "size changed");
-  }
+  test_end_step(3);
 }
 
 static const testcase_t oslib_test_005_001 = {
-  "Allocation and fragmentation",
-  oslib_test_005_001_setup,
+  "Dispatcher test",
+  NULL,
   NULL,
   oslib_test_005_001_execute
-};
-
-/**
- * @page oslib_test_005_002 [5.2] Default Heap
- *
- * <h2>Description</h2>
- * The default heap is pre-allocated in the system. We test base
- * functionality.
- *
- * <h2>Test Steps</h2>
- * - [5.2.1] Single block allocation using chHeapAlloc() then the block
- *   is freed using chHeapFree(), must not fail.
- * - [5.2.2] Testing allocation failure.
- * .
- */
-
-static void oslib_test_005_002_execute(void) {
-  void *p1;
-  size_t total_size, largest_size;
-
-  /* [5.2.1] Single block allocation using chHeapAlloc() then the block
-     is freed using chHeapFree(), must not fail.*/
-  test_set_step(1);
-  {
-    (void)chHeapStatus(NULL, &total_size, &largest_size);
-    p1 = chHeapAlloc(&test_heap, ALLOC_SIZE);
-    test_assert(p1 != NULL, "allocation failed");
-    chHeapFree(p1);
-  }
-
-  /* [5.2.2] Testing allocation failure.*/
-  test_set_step(2);
-  {
-    p1 = chHeapAlloc(NULL, (size_t)-256);
-    test_assert(p1 == NULL, "allocation not failed");
-  }
-}
-
-static const testcase_t oslib_test_005_002 = {
-  "Default Heap",
-  NULL,
-  NULL,
-  oslib_test_005_002_execute
 };
 
 /****************************************************************************
@@ -265,16 +199,15 @@ static const testcase_t oslib_test_005_002 = {
  */
 const testcase_t * const oslib_test_sequence_005_array[] = {
   &oslib_test_005_001,
-  &oslib_test_005_002,
   NULL
 };
 
 /**
- * @brief   Memory Heaps.
+ * @brief   Thread Delegates.
  */
 const testsequence_t oslib_test_sequence_005 = {
-  "Memory Heaps",
+  "Thread Delegates",
   oslib_test_sequence_005_array
 };
 
-#endif /* CH_CFG_USE_HEAP */
+#endif /* CH_CFG_USE_DELEGATES */

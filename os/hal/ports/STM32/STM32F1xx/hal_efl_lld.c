@@ -32,7 +32,6 @@
 /* Driver local definitions.                                                 */
 /*===========================================================================*/
 
-#define STM32_FLASH_SECTOR_SIZE             1024U
 #define STM32_FLASH_LINE_SIZE               2U
 #define STM32_FLASH_LINE_MASK               (STM32_FLASH_LINE_SIZE - 1U)
 
@@ -66,7 +65,6 @@ static const flash_descriptor_t efl_lld_descriptor = {
 /*===========================================================================*/
 /* Driver local functions.                                                   */
 /*===========================================================================*/
-
 
 static inline void stm32_flash_lock(EFlashDriver *eflp) {
 
@@ -305,8 +303,7 @@ flash_error_t efl_lld_program(void *instance, flash_offset_t offset,
       break;
     }
     /* Check for flash error.*/
-    if(address[0] != line.hw[0])
-    {
+    if (address[0] != line.hw[0]) {
       err = FLASH_ERROR_PROGRAM;
       break;
     }
@@ -323,8 +320,8 @@ flash_error_t efl_lld_program(void *instance, flash_offset_t offset,
 
 /**
  * @brief   Starts a whole-device erase operation.
- * @note    This function does nothing, as STM32F1 has only one bank
- *          and it is where the program is running on.
+ * @note    This function does nothing, the flash memory is where the program
+ *          is running on.
  *
  * @param[in] ip                    pointer to a @p EFlashDriver instance
  * @return                          An error code.
@@ -337,7 +334,7 @@ flash_error_t efl_lld_program(void *instance, flash_offset_t offset,
 flash_error_t efl_lld_start_erase_all(void *instance) {
   (void) instance;
 
-  return FLASH_ERROR_HW_FAILURE;
+  return FLASH_ERROR_UNIMPLEMENTED;
 }
 
 /**
@@ -400,7 +397,7 @@ flash_error_t efl_lld_start_erase_sector(void *instance,
  *
  * @api
  */
-flash_error_t efl_lld_query_erase(void *instance, uint32_t *wait_time){
+flash_error_t efl_lld_query_erase(void *instance, uint32_t *wait_time) {
   EFlashDriver *devp = (EFlashDriver *)instance;
   flash_error_t err;
 

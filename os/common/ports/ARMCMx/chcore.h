@@ -96,11 +96,6 @@
 #if !defined(_FROM_ASM_)
 
 /**
- * @brief   Type of a generic ARM register.
- */
-typedef void *regarm_t;
-
-/**
  * @brief   Type of stack and memory alignment enforcement.
  * @note    In this architecture the stack alignment is enforced to 64 bits,
  *          32 bits alignment is supported by hardware but deprecated by ARM,
@@ -126,7 +121,6 @@ struct port_extctx {};
  *          switch.
  */
 struct port_intctx {};
-#endif /* defined(__DOXYGEN__) */
 
 /**
  * @brief   Platform dependent part of the @p thread_t structure.
@@ -134,9 +128,8 @@ struct port_intctx {};
  *          @p port_intctx structure representing the stack pointer
  *          at context switch time.
  */
-struct port_context {
-  struct port_intctx *sp;
-};
+struct port_context {};
+#endif /* defined(__DOXYGEN__) */
 
 #endif /* !defined(_FROM_ASM_) */
 
@@ -194,6 +187,9 @@ struct port_context {
 #elif (CORTEX_MODEL == 3) || (CORTEX_MODEL == 4) || (CORTEX_MODEL == 7)
 #include "mpu.h"
 #include "chcore_v7m.h"
+#elif (CORTEX_MODEL == 33) || (CORTEX_MODEL == 55)
+#include "mpu_v8m.h"
+#include "chcore_v8m-ml.h"
 #else
 #error "unknown Cortex-M variant"
 #endif

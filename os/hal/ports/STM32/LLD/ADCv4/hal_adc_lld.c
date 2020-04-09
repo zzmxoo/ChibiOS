@@ -115,14 +115,14 @@ static void adc_lld_vreg_off(ADCDriver *adcp) {
  */
 static void adc_lld_analog_on(ADCDriver *adcp) {
 
-  adcp->adcm->ISR = ADC_ISR_ADRD;
+  adcp->adcm->ISR = ADC_ISR_ADRDY;
   adcp->adcm->CR |= ADC_CR_ADEN;
-  while ((adcp->adcm->ISR & ADC_ISR_ADRD) == 0U)
+  while ((adcp->adcm->ISR & ADC_ISR_ADRDY) == 0U)
     ;
 #if STM32_ADC_DUAL_MODE
-  adcp->adcs->ISR = ADC_ISR_ADRD;
+  adcp->adcs->ISR = ADC_ISR_ADRDY;
   adcp->adcs->CR |= ADC_CR_ADEN;
-  while ((adcp->adcs->ISR & ADC_ISR_ADRD) == 0U)
+  while ((adcp->adcs->ISR & ADC_ISR_ADRDY) == 0U)
     ;
 #endif
 }
@@ -187,7 +187,7 @@ static void adc_lld_stop_adc(ADCDriver *adcp) {
 }
 
 /**
- * @brief   ADC DMA ISR service routine.
+ * @brief   ADC DMA service routine.
  *
  * @param[in] adcp      pointer to the @p ADCDriver object
  * @param[in] flags     pre-shifted content of the ISR register
@@ -217,7 +217,7 @@ static void adc_lld_serve_dma_interrupt(ADCDriver *adcp, uint32_t flags) {
 }
 
 /**
- * @brief   ADC BDMA ISR service routine.
+ * @brief   ADC BDMA service routine.
  *
  * @param[in] adcp      pointer to the @p ADCDriver object
  * @param[in] flags     pre-shifted content of the ISR register
@@ -247,7 +247,7 @@ static void adc_lld_serve_bdma_interrupt(ADCDriver *adcp, uint32_t flags) {
 }
 
 /**
- * @brief   ADC ISR service routine.
+ * @brief   ADC IRQ service routine.
  *
  * @param[in] adcp      pointer to the @p ADCDriver object
  * @param[in] isr       content of the ISR register
@@ -550,7 +550,7 @@ void adc_lld_start_conversion(ADCDriver *adcp) {
   /* ADC setup, if it is defined a callback for the analog watch dog then it
      is enabled.*/
   adcp->adcm->ISR   = adcp->adcm->ISR;
-  adcp->adcm->IER   = ADC_IER_OVR | ADC_IER_AWD1;
+  adcp->adcm->IER   = ADC_IER_OVRIE | ADC_IER_AWD1IE;
 #if STM32_ADC_DUAL_MODE
 
   /* Configuring the CCR register with the user-specified settings

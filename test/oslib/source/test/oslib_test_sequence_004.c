@@ -21,48 +21,53 @@
  * @file    oslib_test_sequence_004.c
  * @brief   Test Sequence 004 code.
  *
- * @page oslib_test_sequence_004 [4] Memory Pools
+ * @page oslib_test_sequence_004 [4] Jobs Queues
  *
  * File: @ref oslib_test_sequence_004.c
  *
  * <h2>Description</h2>
  * This sequence tests the ChibiOS library functionalities related to
- * memory pools.
+ * Jobs Queues.
  *
  * <h2>Conditions</h2>
  * This sequence is only executed if the following preprocessor condition
  * evaluates to true:
- * - CH_CFG_USE_MEMPOOLS
+ * - CH_CFG_USE_JOBS
  * .
  *
  * <h2>Test Cases</h2>
  * - @subpage oslib_test_004_001
- * - @subpage oslib_test_004_002
- * - @subpage oslib_test_004_003
  * .
  */
 
-#if (CH_CFG_USE_MEMPOOLS) || defined(__DOXYGEN__)
+#if (CH_CFG_USE_JOBS) || defined(__DOXYGEN__)
 
 /****************************************************************************
  * Shared code.
  ****************************************************************************/
 
-#define MEMORY_POOL_SIZE 4
+#define JOBS_QUEUE_SIZE 4
 
-static uint32_t objects[MEMORY_POOL_SIZE];
-static MEMORYPOOL_DECL(mp1, sizeof (uint32_t), PORT_NATURAL_ALIGN, NULL);
+static jobs_queue_t jq;
+static job_descriptor_t jobs[JOBS_QUEUE_SIZE];
+static msg_t msg_queue[JOBS_QUEUE_SIZE];
 
-#if CH_CFG_USE_SEMAPHORES
-static GUARDEDMEMORYPOOL_DECL(gmp1, sizeof (uint32_t), PORT_NATURAL_ALIGN);
-#endif
+static void job_slow(void *arg) {
 
-static void *null_provider(size_t size, unsigned align) {
+  test_emit_token((int)arg);
+  chThdSleepMilliseconds(10);
+}
 
-  (void)size;
-  (void)align;
+static THD_WORKING_AREA(wa1Thread1, 256);
+static THD_WORKING_AREA(wa2Thread1, 256);
+static THD_FUNCTION(Thread1, arg) {
+  msg_t msg;
 
-  return NULL;
+  (void)arg;
+
+  do {
+    msg = chJobDispatch(&jq);
+  } while (msg == MSG_OK);
 }
 
 /****************************************************************************
@@ -70,209 +75,95 @@ static void *null_provider(size_t size, unsigned align) {
  ****************************************************************************/
 
 /**
- * @page oslib_test_004_001 [4.1] Loading and emptying a memory pool
+ * @page oslib_test_004_001 [4.1] Dispatcher test
  *
  * <h2>Description</h2>
- * The memory pool functionality is tested by loading and emptying it,
- * all conditions are tested.
+ * The dispatcher API is tested for functionality.
  *
  * <h2>Test Steps</h2>
- * - [4.1.1] Adding the objects to the pool using chPoolLoadArray().
- * - [4.1.2] Emptying the pool using chPoolAlloc().
- * - [4.1.3] Now must be empty.
- * - [4.1.4] Adding the objects to the pool using chPoolFree().
- * - [4.1.5] Emptying the pool using chPoolAlloc() again.
- * - [4.1.6] Now must be empty again.
- * - [4.1.7] Covering the case where a provider is unable to return
- *   more memory.
+ * - [4.1.1] Initializing the Jobs Queue object.
+ * - [4.1.2] Starting the dispatcher threads.
+ * - [4.1.3] Sending jobs with various timings.
+ * - [4.1.4] Sending two null jobs to make threads exit.
  * .
  */
 
-static void oslib_test_004_001_setup(void) {
-  chPoolObjectInit(&mp1, sizeof (uint32_t), NULL);
-}
-
 static void oslib_test_004_001_execute(void) {
-  unsigned i;
+  thread_t *tp1, *tp2;
 
-  /* [4.1.1] Adding the objects to the pool using chPoolLoadArray().*/
+  /* [4.1.1] Initializing the Jobs Queue object.*/
   test_set_step(1);
   {
-    chPoolLoadArray(&mp1, objects, MEMORY_POOL_SIZE);
+    chJobObjectInit(&jq, JOBS_QUEUE_SIZE, jobs, msg_queue);
   }
+  test_end_step(1);
 
-  /* [4.1.2] Emptying the pool using chPoolAlloc().*/
+  /* [4.1.2] Starting the dispatcher threads.*/
   test_set_step(2);
   {
-    for (i = 0; i < MEMORY_POOL_SIZE; i++)
-      test_assert(chPoolAlloc(&mp1) != NULL, "list empty");
-  }
+    thread_descriptor_t td1 = {
+      .name  = "dispatcher1",
+      .wbase = wa1Thread1,
+      .wend  = THD_WORKING_AREA_END(wa1Thread1),
+      .prio  = chThdGetPriorityX() - 1,
+      .funcp = Thread1,
+      .arg   = NULL
+    };
+    tp1 = chThdCreate(&td1);
 
-  /* [4.1.3] Now must be empty.*/
+    thread_descriptor_t td2 = {
+      .name  = "dispatcher2",
+      .wbase = wa2Thread1,
+      .wend  = THD_WORKING_AREA_END(wa2Thread1),
+      .prio  = chThdGetPriorityX() - 2,
+      .funcp = Thread1,
+      .arg   = NULL
+    };
+    tp2 = chThdCreate(&td2);
+  }
+  test_end_step(2);
+
+  /* [4.1.3] Sending jobs with various timings.*/
   test_set_step(3);
   {
-    test_assert(chPoolAlloc(&mp1) == NULL, "list not empty");
-  }
+    unsigned i;
+    job_descriptor_t *jdp;
 
-  /* [4.1.4] Adding the objects to the pool using chPoolFree().*/
+    for (i = 0; i < 8; i++) {
+      jdp = chJobGet(&jq);
+      jdp->jobfunc = job_slow;
+      jdp->jobarg  = (void *)('a' + i);
+      chJobPost(&jq, jdp);
+    }
+  }
+  test_end_step(3);
+
+  /* [4.1.4] Sending two null jobs to make threads exit.*/
   test_set_step(4);
   {
-    for (i = 0; i < MEMORY_POOL_SIZE; i++)
-      chPoolFree(&mp1, &objects[i]);
-  }
+    job_descriptor_t *jdp;
 
-  /* [4.1.5] Emptying the pool using chPoolAlloc() again.*/
-  test_set_step(5);
-  {
-    for (i = 0; i < MEMORY_POOL_SIZE; i++)
-      test_assert(chPoolAlloc(&mp1) != NULL, "list empty");
+    jdp = chJobGet(&jq);
+    jdp->jobfunc = NULL;
+    jdp->jobarg  = NULL;
+    chJobPost(&jq, jdp);
+    jdp = chJobGet(&jq);
+    jdp->jobfunc = NULL;
+    jdp->jobarg  = NULL;
+    chJobPost(&jq, jdp);
+    (void) chThdWait(tp1);
+    (void) chThdWait(tp2);
+    test_assert_sequence("abcdefgh", "unexpected tokens");
   }
-
-  /* [4.1.6] Now must be empty again.*/
-  test_set_step(6);
-  {
-    test_assert(chPoolAlloc(&mp1) == NULL, "list not empty");
-  }
-
-  /* [4.1.7] Covering the case where a provider is unable to return
-     more memory.*/
-  test_set_step(7);
-  {
-    chPoolObjectInit(&mp1, sizeof (uint32_t), null_provider);
-    test_assert(chPoolAlloc(&mp1) == NULL, "provider returned memory");
-  }
+  test_end_step(4);
 }
 
 static const testcase_t oslib_test_004_001 = {
-  "Loading and emptying a memory pool",
-  oslib_test_004_001_setup,
+  "Dispatcher test",
+  NULL,
   NULL,
   oslib_test_004_001_execute
 };
-
-#if (CH_CFG_USE_SEMAPHORES) || defined(__DOXYGEN__)
-/**
- * @page oslib_test_004_002 [4.2] Loading and emptying a guarded memory pool without waiting
- *
- * <h2>Description</h2>
- * The memory pool functionality is tested by loading and emptying it,
- * all conditions are tested.
- *
- * <h2>Conditions</h2>
- * This test is only executed if the following preprocessor condition
- * evaluates to true:
- * - CH_CFG_USE_SEMAPHORES
- * .
- *
- * <h2>Test Steps</h2>
- * - [4.2.1] Adding the objects to the pool using
- *   chGuardedPoolLoadArray().
- * - [4.2.2] Emptying the pool using chGuardedPoolAllocTimeout().
- * - [4.2.3] Now must be empty.
- * - [4.2.4] Adding the objects to the pool using chGuardedPoolFree().
- * - [4.2.5] Emptying the pool using chGuardedPoolAllocTimeout() again.
- * - [4.2.6] Now must be empty again.
- * .
- */
-
-static void oslib_test_004_002_setup(void) {
-  chGuardedPoolObjectInit(&gmp1, sizeof (uint32_t));
-}
-
-static void oslib_test_004_002_execute(void) {
-  unsigned i;
-
-  /* [4.2.1] Adding the objects to the pool using
-     chGuardedPoolLoadArray().*/
-  test_set_step(1);
-  {
-    chGuardedPoolLoadArray(&gmp1, objects, MEMORY_POOL_SIZE);
-  }
-
-  /* [4.2.2] Emptying the pool using chGuardedPoolAllocTimeout().*/
-  test_set_step(2);
-  {
-    for (i = 0; i < MEMORY_POOL_SIZE; i++)
-      test_assert(chGuardedPoolAllocTimeout(&gmp1, TIME_IMMEDIATE) != NULL, "list empty");
-  }
-
-  /* [4.2.3] Now must be empty.*/
-  test_set_step(3);
-  {
-    test_assert(chGuardedPoolAllocTimeout(&gmp1, TIME_IMMEDIATE) == NULL, "list not empty");
-  }
-
-  /* [4.2.4] Adding the objects to the pool using
-     chGuardedPoolFree().*/
-  test_set_step(4);
-  {
-    for (i = 0; i < MEMORY_POOL_SIZE; i++)
-      chGuardedPoolFree(&gmp1, &objects[i]);
-  }
-
-  /* [4.2.5] Emptying the pool using chGuardedPoolAllocTimeout()
-     again.*/
-  test_set_step(5);
-  {
-    for (i = 0; i < MEMORY_POOL_SIZE; i++)
-      test_assert(chGuardedPoolAllocTimeout(&gmp1, TIME_IMMEDIATE) != NULL, "list empty");
-  }
-
-  /* [4.2.6] Now must be empty again.*/
-  test_set_step(6);
-  {
-    test_assert(chGuardedPoolAllocTimeout(&gmp1, TIME_IMMEDIATE) == NULL, "list not empty");
-  }
-}
-
-static const testcase_t oslib_test_004_002 = {
-  "Loading and emptying a guarded memory pool without waiting",
-  oslib_test_004_002_setup,
-  NULL,
-  oslib_test_004_002_execute
-};
-#endif /* CH_CFG_USE_SEMAPHORES */
-
-#if (CH_CFG_USE_SEMAPHORES) || defined(__DOXYGEN__)
-/**
- * @page oslib_test_004_003 [4.3] Guarded Memory Pools timeout
- *
- * <h2>Description</h2>
- * The timeout features for the Guarded Memory Pools is tested.
- *
- * <h2>Conditions</h2>
- * This test is only executed if the following preprocessor condition
- * evaluates to true:
- * - CH_CFG_USE_SEMAPHORES
- * .
- *
- * <h2>Test Steps</h2>
- * - [4.3.1] Trying to allocate with 100mS timeout, must fail because
- *   the pool is empty.
- * .
- */
-
-static void oslib_test_004_003_setup(void) {
-  chGuardedPoolObjectInit(&gmp1, sizeof (uint32_t));
-}
-
-static void oslib_test_004_003_execute(void) {
-
-  /* [4.3.1] Trying to allocate with 100mS timeout, must fail because
-     the pool is empty.*/
-  test_set_step(1);
-  {
-    test_assert(chGuardedPoolAllocTimeout(&gmp1, TIME_MS2I(100)) == NULL, "list not empty");
-  }
-}
-
-static const testcase_t oslib_test_004_003 = {
-  "Guarded Memory Pools timeout",
-  oslib_test_004_003_setup,
-  NULL,
-  oslib_test_004_003_execute
-};
-#endif /* CH_CFG_USE_SEMAPHORES */
 
 /****************************************************************************
  * Exported data.
@@ -283,21 +174,15 @@ static const testcase_t oslib_test_004_003 = {
  */
 const testcase_t * const oslib_test_sequence_004_array[] = {
   &oslib_test_004_001,
-#if (CH_CFG_USE_SEMAPHORES) || defined(__DOXYGEN__)
-  &oslib_test_004_002,
-#endif
-#if (CH_CFG_USE_SEMAPHORES) || defined(__DOXYGEN__)
-  &oslib_test_004_003,
-#endif
   NULL
 };
 
 /**
- * @brief   Memory Pools.
+ * @brief   Jobs Queues.
  */
 const testsequence_t oslib_test_sequence_004 = {
-  "Memory Pools",
+  "Jobs Queues",
   oslib_test_sequence_004_array
 };
 
-#endif /* CH_CFG_USE_MEMPOOLS */
+#endif /* CH_CFG_USE_JOBS */

@@ -44,9 +44,18 @@
  * RTOS-specific context offset.
  */
 #if defined(_CHIBIOS_RT_CONF_)
+#if CH_CFG_USE_REGISTRY
+#define CURRENT_OFFSET  20          /* ch.rlist.current */
+#define CONTEXT_OFFSET  20
+#else
+#define CURRENT_OFFSET  12
 #define CONTEXT_OFFSET  12
+#endif
+
 #elif defined(_CHIBIOS_NIL_CONF_)
+#define CURRENT_OFFSET  0           /* nil.current */
 #define CONTEXT_OFFSET  0
+
 #else
 #error "invalid chconf.h"
 #endif
@@ -63,7 +72,7 @@ ICSR_PENDSVSET  SET 0x10000000
 
                 EXTERN  chThdExit
                 EXTERN  chSchDoReschedule
-#if CH_DBG_ENABLE_STACK_CHECK || PORT_ENABLE_GUARD_PAGES
+#if CH_DBG_ENABLE_STACK_CHECK && PORT_ENABLE_GUARD_PAGES
                 EXTERN  _port_set_region
 #endif
 #if CH_DBG_STATISTICS
@@ -109,7 +118,7 @@ _port_switch:
  */
                 PUBLIC  _port_thread_start
 _port_thread_start:
-#if CH_DBG_ENABLE_STACK_CHECK || PORT_ENABLE_GUARD_PAGES
+#if CH_DBG_ENABLE_STACK_CHECK && PORT_ENABLE_GUARD_PAGES
                 bl      _port_set_region
 #endif
 #if CH_DBG_SYSTEM_STATE_CHECK

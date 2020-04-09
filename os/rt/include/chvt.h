@@ -18,7 +18,7 @@
 */
 
 /**
- * @file    chvt.h
+ * @file    rt/include/chvt.h
  * @brief   Time and Virtual Timers module macros and structures.
  *
  * @addtogroup time
@@ -45,9 +45,9 @@
        "be zero or greater than one"
 #endif
 
-//#if (CH_CFG_ST_TIMEDELTA > 0) && (CH_CFG_TIME_QUANTUM > 0)
-//#error "CH_CFG_TIME_QUANTUM not supported in tickless mode"
-//#endif
+#if (CH_CFG_ST_TIMEDELTA > 0) && (CH_CFG_TIME_QUANTUM > 0)
+#error "CH_CFG_TIME_QUANTUM not supported in tickless mode"
+#endif
 
 #if (CH_CFG_ST_TIMEDELTA > 0) && (CH_DBG_THREADS_PROFILING == TRUE)
 #error "CH_DBG_THREADS_PROFILING not supported in tickless mode"
@@ -157,8 +157,8 @@ static inline sysinterval_t chVTTimeElapsedSinceX(systime_t start) {
 /**
  * @brief   Checks if the current system time is within the specified time
  *          window.
- * @note    When start==end then the function returns always true because the
- *          whole time range is specified.
+ * @note    When start==end then the function returns always false because the
+ *          time window has zero size.
  *
  * @param[in] start     the start of the time window (inclusive)
  * @param[in] end       the end of the time window (non inclusive)
@@ -175,8 +175,8 @@ static inline bool chVTIsSystemTimeWithinX(systime_t start, systime_t end) {
 /**
  * @brief   Checks if the current system time is within the specified time
  *          window.
- * @note    When start==end then the function returns always true because the
- *          whole time range is specified.
+ * @note    When start==end then the function returns always false because the
+ *          time window has zero size.
  *
  * @param[in] start     the start of the time window (inclusive)
  * @param[in] end       the end of the time window (non inclusive)
@@ -218,10 +218,8 @@ static inline bool chVTGetTimersStateI(sysinterval_t *timep) {
 #if CH_CFG_ST_TIMEDELTA == 0
     *timep = ch.vtlist.next->delta;
 #else
-    *timep = chTimeDiffX(chVTGetSystemTimeX(),
-                         chTimeAddX(ch.vtlist.lasttime,
-                                    ch.vtlist.next->delta +
-                                    (sysinterval_t)CH_CFG_ST_TIMEDELTA));
+    *timep = (ch.vtlist.next->delta + (sysinterval_t)CH_CFG_ST_TIMEDELTA) -
+             chTimeDiffX(ch.vtlist.lasttime, chVTGetSystemTimeX());
 #endif
   }
 
@@ -423,7 +421,7 @@ static inline void chVTDoTickI(void) {
       fn = vtp->func;
       vtp->func = NULL;
 
-      /* if the list becomes empty then the timer is stopped.*/
+      /* If the list becomes empty then the timer is stopped.*/
       if (ch.vtlist.next == (virtual_timer_t *)&ch.vtlist) {
         port_timer_stop_alarm();
       }
@@ -439,7 +437,7 @@ static inline void chVTDoTickI(void) {
     while (vtp->delta <= nowdelta);
   }
 
-  /* if the list is empty, nothing else to do.*/
+  /* If the list is empty, nothing else to do.*/
   if (ch.vtlist.next == (virtual_timer_t *)&ch.vtlist) {
     return;
   }
@@ -450,7 +448,7 @@ static inline void chVTDoTickI(void) {
   ch.vtlist.next->delta -= nowdelta;
 
   /* Recalculating the next alarm time.*/
-  delta = chTimeDiffX(now, chTimeAddX(ch.vtlist.lasttime, vtp->delta));
+  delta = vtp->delta - chTimeDiffX(ch.vtlist.lasttime, now);
   if (delta < (sysinterval_t)CH_CFG_ST_TIMEDELTA) {
     delta = (sysinterval_t)CH_CFG_ST_TIMEDELTA;
   }

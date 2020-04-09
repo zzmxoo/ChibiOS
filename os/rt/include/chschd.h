@@ -18,7 +18,7 @@
 */
 
 /**
- * @file    chschd.h
+ * @file    rt/include/chschd.h
  * @brief   Scheduler macros and structures.
  *
  * @addtogroup scheduler
@@ -142,12 +142,15 @@ struct ch_threads_queue {
 struct ch_thread {
   threads_queue_t       queue;      /**< @brief Threads queue header.       */
   tprio_t               prio;       /**< @brief Thread priority.            */
-  struct port_context   ctx;        /**< @brief Processor context.          */
 #if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
   thread_t              *newer;     /**< @brief Newer registry element.     */
   thread_t              *older;     /**< @brief Older registry element.     */
 #endif
   /* End of the fields shared with the ReadyList structure. */
+  /**
+   * @brief   Processor context.
+   */
+  struct port_context   ctx;
 #if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
   /**
    * @brief   Thread name or @p NULL.
@@ -351,8 +354,6 @@ struct ch_ready_list {
   threads_queue_t       queue;      /**< @brief Threads queue.              */
   tprio_t               prio;       /**< @brief This field must be
                                                 initialized to zero.        */
-  struct port_context   ctx;        /**< @brief Not used, present because
-                                                offsets.                    */
 #if (CH_CFG_USE_REGISTRY == TRUE) || defined(__DOXYGEN__)
   thread_t              *newer;     /**< @brief Newer registry element.     */
   thread_t              *older;     /**< @brief Older registry element.     */
@@ -709,6 +710,37 @@ static inline void chSchPreemption(void) {
     chSchDoRescheduleAhead();
   }
 #endif /* CH_CFG_TIME_QUANTUM == 0 */
+}
+
+/**
+ * @brief   Makes runnable the fist thread in the ready list, does not
+ *          reschedule internally.
+ * @details The current thread is positioned in the ready list ahead of all
+ *          threads having the same priority.
+ * @note    Not a user function, it is meant to be invoked by the scheduler
+ *          itself.
+ *
+ * @return              The pointer to the thread being switched in.
+ *
+ * @special
+ */
+static inline thread_t *chSchSelectFirstI(void) {
+  thread_t *otp = currp;
+  thread_t *ntp;
+
+  /* Picks the first thread from the ready queue and makes it current.*/
+  currp = ntp = queue_fifo_remove(&ch.rlist.queue);
+  ntp->state = CH_STATE_CURRENT;
+
+  /* Handling idle-leave hook.*/
+  if (otp->prio == IDLEPRIO) {
+    CH_CFG_IDLE_LEAVE_HOOK();
+  }
+
+  /* Placing in ready list ahead of peers.*/
+  chSchReadyAheadI(otp);
+
+  return ntp;
 }
 
 #endif /* CHSCHD_H */

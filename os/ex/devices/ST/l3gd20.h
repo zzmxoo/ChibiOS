@@ -1,5 +1,5 @@
 /*
-    ChibiOS - Copyright (C) 2016..2018 Rocco Marco Guglielmi
+    ChibiOS - Copyright (C) 2016..2019 Rocco Marco Guglielmi
 
     This file is part of ChibiOS.
 
@@ -321,8 +321,8 @@
 #error "L3GD20_SHARED_I2C requires I2C_USE_MUTUAL_EXCLUSION"
 #endif
 
-/**
- * @todo    Add support for L3GD20 over I2C.
+/*
+ * CHTODO: Add support for L3GD20 over I2C.
  */
 #if L3GD20_USE_I2C
 #error "L3GD20 over I2C still not supported"

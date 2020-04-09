@@ -1,5 +1,5 @@
 /*
-    ChibiOS - Copyright (C) 2016..2018 Rocco Marco Guglielmi
+    ChibiOS - Copyright (C) 2016..2019 Rocco Marco Guglielmi
 
     This file is part of ChibiOS.
 
@@ -77,8 +77,8 @@
 
 /**
  * @brief   LPS22HB thermometer subsystem characteristics.
- * @note    Sensitivity is expressed as °C/LSB.
- * @note    Bias is expressed as °C.
+ * @note    Sensitivity is expressed as ï¿½C/LSB.
+ * @note    Bias is expressed as ï¿½C.
  *
  * @{
  */
@@ -280,8 +280,8 @@
 #error "LPS22HB_SHARED_I2C requires I2C_USE_MUTUAL_EXCLUSION"
 #endif
 
-/**
- * @todo    Add support for LPS22HB over SPI.
+/*
+ * CHTODO: Add support for LPS22HB over SPI.
  */
 #if LPS22HB_USE_SPI
 #error "LPS22HB over SPI still not supported"

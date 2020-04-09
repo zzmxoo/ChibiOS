@@ -94,6 +94,7 @@ static void oslib_test_001_001_execute(void) {
     test_println("");
 #endif
   }
+  test_end_step(1);
 }
 
 static const testcase_t oslib_test_001_001 = {
@@ -135,6 +136,7 @@ static void oslib_test_001_002_execute(void) {
     test_printn(CH_OSLIB_PATCH);
     test_println("");
   }
+  test_end_step(1);
 }
 
 static const testcase_t oslib_test_001_002 = {
@@ -160,6 +162,9 @@ static void oslib_test_001_003_execute(void) {
   /* [1.3.1] Prints the configuration options settings.*/
   test_set_step(1);
   {
+    test_print("--- CH_CFG_USE_MAILBOXES:               ");
+    test_printn(CH_CFG_USE_MAILBOXES);
+    test_println("");
     test_print("--- CH_CFG_USE_MEMCORE:                 ");
     test_printn(CH_CFG_USE_MEMCORE);
     test_println("");
@@ -174,6 +179,12 @@ static void oslib_test_001_003_execute(void) {
     test_println("");
     test_print("--- CH_CFG_USE_PIPES:                   ");
     test_printn(CH_CFG_USE_PIPES);
+    test_println("");
+    test_print("--- CH_CFG_USE_OBJ_CACHES:              ");
+    test_printn(CH_CFG_USE_OBJ_CACHES);
+    test_println("");
+    test_print("--- CH_CFG_USE_DELEGATES:               ");
+    test_printn(CH_CFG_USE_DELEGATES);
     test_println("");
     test_print("--- CH_CFG_USE_FACTORY:                 ");
     test_printn(CH_CFG_USE_FACTORY);
@@ -200,6 +211,7 @@ static void oslib_test_001_003_execute(void) {
     test_printn(CH_CFG_FACTORY_PIPES);
     test_println("");
   }
+  test_end_step(1);
 }
 
 static const testcase_t oslib_test_001_003 = {

@@ -154,8 +154,8 @@
 #define STM32_HPRE_DIV256       STM32_HPRE_FIELD(14U)
 #define STM32_HPRE_DIV512       STM32_HPRE_FIELD(15U)
 
-#define STM32_PPRE_MASK         (7U << 12U) /**< PPRE field mask.           */
-#define STM32_PPRE_FIELD(n)     (7U << 12U) /**< PPRE field value.          */
+#define STM32_PPRE_MASK         (7U << 12U)  /**< PPRE field mask.          */
+#define STM32_PPRE_FIELD(n)     ((n) << 12U) /**< PPRE field value.         */
 #define STM32_PPRE_DIV1         STM32_PPRE_FIELD(0U)
 #define STM32_PPRE_DIV2         STM32_PPRE_FIELD(4U)
 #define STM32_PPRE_DIV4         STM32_PPRE_FIELD(5U)
@@ -167,7 +167,7 @@
 #define STM32_MCOSEL_SYSCLK     (1U << 24U) /**< SYSCLK on MCO pin.         */
 #define STM32_MCOSEL_HSI16      (3U << 24U) /**< HSI16 clock on MCO pin.    */
 #define STM32_MCOSEL_HSE        (4U << 24U) /**< HSE clock on MCO pin.      */
-#define STM32_MCOSEL_PLLRCLK    (5U << 24U) /**< PLLR clock on MCO pin.      */
+#define STM32_MCOSEL_PLLRCLK    (5U << 24U) /**< PLLR clock on MCO pin.     */
 #define STM32_MCOSEL_LSI        (6U << 24U) /**< LSI clock on MCO pin.      */
 #define STM32_MCOSEL_LSE        (7U << 24U) /**< LSE clock on MCO pin.      */
 
@@ -264,7 +264,7 @@
 #define STM32_RNGDIV_8          STM32_RNGDIV_FIELD(3U)
 
 #define STM32_ADCSEL_MASK       (3U << 30U) /**< ADCSEL mask.               */
-#define STM32_ADCSEL_NOCLK      (0U << 30U) /**< ADC source is SYSCLK.      */
+#define STM32_ADCSEL_SYSCLK     (0U << 30U) /**< ADC source is SYSCLK.      */
 #define STM32_ADCSEL_PLLPCLK    (1U << 30U) /**< ADC source is PLLPCLK.     */
 #define STM32_ADCSEL_HSI16      (2U << 30U) /**< ADC source is HSI16.       */
 /** @} */
@@ -379,7 +379,7 @@
 
 /**
  * @brief   PLLM divider value.
- * @note    The allowed values are 1..16.
+ * @note    The allowed values are 1..8.
  * @note    The default value is calculated for a 64MHz system clock from
  *          the internal 16MHz HSI clock.
  */
@@ -402,7 +402,7 @@
  * @note    The allowed values are 2..32.
  */
 #if !defined(STM32_PLLP_VALUE) || defined(__DOXYGEN__)
-#define STM32_PLLP_VALUE                    4
+#define STM32_PLLP_VALUE                    2
 #endif
 
 /**
@@ -665,7 +665,7 @@
 /**
  * @brief   Minimum VCO clock frequency at current voltage setting.
  */
-#define STM32_PLLVCO_MIN            96000000
+#define STM32_PLLVCO_MIN            64000000
 
 /**
  * @brief   Maximum PLL-P output clock frequency.
@@ -722,8 +722,8 @@
 
 #elif STM32_VOS == STM32_VOS_RANGE2
 #define STM32_SYSCLK_MAX            16000000
-#define STM32_HSECLK_MAX            26000000
-#define STM32_HSECLK_BYP_MAX        26000000
+#define STM32_HSECLK_MAX            16000000
+#define STM32_HSECLK_BYP_MAX        16000000
 #define STM32_HSECLK_MIN            4000000
 #define STM32_HSECLK_BYP_MIN        8000000
 #define STM32_LSECLK_MAX            32768
@@ -736,7 +736,7 @@
 #define STM32_PLLVCO_MIN            96000000
 #define STM32_PLLP_MAX              40000000
 #define STM32_PLLP_MIN              3090000
-#define STM32_PLLQ_MAX              33000000
+#define STM32_PLLQ_MAX              32000000
 #define STM32_PLLQ_MIN              12000000
 #define STM32_PLLR_MAX              16000000
 #define STM32_PLLR_MIN              12000000
@@ -909,21 +909,21 @@
  * @brief   STM32_HSIDIV field.
  */
 #if (STM32_HSIDIV_VALUE == 1) || defined(__DOXYGEN__)
-#define STM32_HSIDIV                (0U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_1
 #elif STM32_HSIDIV_VALUE == 2
-#define STM32_HSIDIV                (1U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_2
 #elif STM32_HSIDIV_VALUE == 4
-#define STM32_HSIDIV                (2U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_4
 #elif STM32_HSIDIV_VALUE == 8
-#define STM32_HSIDIV                (3U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_8
 #elif STM32_HSIDIV_VALUE == 16
-#define STM32_HSIDIV                (4U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_16
 #elif STM32_HSIDIV_VALUE == 32
-#define STM32_HSIDIV                (5U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_32
 #elif STM32_HSIDIV_VALUE == 64
-#define STM32_HSIDIV                (6U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_64
 #elif STM32_HSIDIV_VALUE == 128
-#define STM32_HSIDIV                (7U << 11U)
+#define STM32_HSIDIV                STM32_HSIDIV_128
 #else
 #error "invalid STM32_HSIDIV_VALUE value specified"
 #endif
@@ -949,7 +949,7 @@
 
 #elif STM32_PLLSRC == STM32_PLLSRC_NOCLOCK
 #define STM32_PLLCLKIN              0
-      
+
 #else
 #error "invalid STM32_PLLSRC value specified"
 #endif
@@ -1211,6 +1211,12 @@
 #endif
 
 /*
+ * Compatibility definitions.
+ */
+#define STM32_PCLK1                 STM32_PCLK
+#define STM32_PCLK2                 STM32_PCLK
+
+/*
  * APB frequency check.
  */
 #if STM32_PCLK > STM32_PCLK_MAX
@@ -1457,8 +1463,8 @@
 /**
  * @brief   ADC clock frequency.
  */
-#if (STM32_ADCSEL == STM32_ADCSEL_NOCLK) || defined(__DOXYGEN__)
-#define STM32_ADCCLK                0
+#if (STM32_ADCSEL == STM32_ADCSEL_SYSCLK) || defined(__DOXYGEN__)
+#define STM32_ADCCLK                STM32_SYSCLK
 #elif STM32_ADCSEL == STM32_ADCSEL_PLLPCLK
 #define STM32_ADCCLK                STM32_PLL_P_CLKOUT
 #elif STM32_ADCSEL == STM32_ADCSEL_HSI16
@@ -1538,10 +1544,12 @@
 
 /* Various helpers.*/
 #include "nvic.h"
+#include "cache.h"
 #include "stm32_isr.h"
-//#include "stm32_dma.h"
-//#include "stm32_exti.h"
+#include "stm32_dma.h"
+#include "stm32_exti.h"
 #include "stm32_rcc.h"
+#include "stm32_tim.h"
 
 #ifdef __cplusplus
 extern "C" {

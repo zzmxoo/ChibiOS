@@ -1,5 +1,5 @@
 /*
-    ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
+    ChibiOS - Copyright (C) 2006..2019 Giovanni Di Sirio
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 /* Common.                                                                   */
 /*===========================================================================*/
 
-/* RTC attributes.*/
+/* RTC and TAMP attributes.*/
 #define STM32_HAS_RTC                       TRUE
 #define STM32_RTC_HAS_SUBSECONDS            TRUE
 #define STM32_RTC_HAS_PERIODIC_WAKEUPS      TRUE
@@ -46,22 +46,42 @@
 #define STM32_RTC_STORAGE_SIZE              20
 #define STM32_RTC_COMMON_HANDLER            Vector48
 #define STM32_RTC_COMMON_NUMBER             2
-#define STM32_RTC_ALARM_EXTI                18
-#define STM32_RTC_TAMP_STAMP_EXTI           19
-#define STM32_RTC_WKUP_EXTI                 20
+#define STM32_RTC_EVENT_RTC_EXTI            19
+#define STM32_RTC_EVENT_TAMP_EXTI           21
 #define STM32_RTC_IRQ_ENABLE() do {                                         \
   nvicEnableVector(STM32_RTC_COMMON_NUMBER,                                 \
-                   STM32_IRQ_EXTI19_21_IRQ_PRIORITY);                       \
+                   STM32_IRQ_EXTI1921_PRIORITY);                            \
 } while (false)
+
+ /* Enabling RTC-related EXTI lines.*/
+#define STM32_RTC_ENABLE_ALL_EXTI() do {                                    \
+  extiEnableGroup1(EXTI_MASK1(STM32_RTC_EVENT_RTC_EXTI) |                   \
+                   EXTI_MASK1(STM32_RTC_EVENT_TAMP_EXTI),                   \
+                   EXTI_MODE_RISING_EDGE | EXTI_MODE_ACTION_INTERRUPT);     \
+} while (false)
+
+/* Clearing EXTI interrupts. */
+#define STM32_RTC_CLEAR_ALL_EXTI() do {                                     \
+  extiClearGroup1(EXTI_MASK1(STM32_RTC_EVENT_RTC_EXTI) |                    \
+                  EXTI_MASK1(STM32_RTC_EVENT_TAMP_EXTI));                   \
+} while (false)
+
+/* Masks used to preserve state of RTC and TAMP register reserved bits. */
+#define STM32_RTC_CR_MASK                   0xE7FFFF7F
+#define STM32_RTC_PRER_MASK                 0x007F7FFF
+#define STM32_TAMP_CR1_MASK                 0x003C0003
+#define STM32_TAMP_CR2_MASK                 0x030300FF
+#define STM32_TAMP_FLTCR_MASK               0x000000FF
+#define STM32_TAMP_IER_MASK                 0x003C0003
 
 #if defined(STM32G081xx) || defined(__DOXYGEN__)
 #define STM32_HAS_RNG1                      TRUE
 #define STM32_HAS_HASH1                     FALSE
-#define STM32_HAS_AES1                      TRUE
+#define STM32_HAS_CRYP1                     TRUE
 #else
 #define STM32_HAS_RNG1                      FALSE
 #define STM32_HAS_HASH1                     FALSE
-#define STM32_HAS_AES1                      FALSE
+#define STM32_HAS_CRYP1                     FALSE
 #endif
 
 /*===========================================================================*/
@@ -72,8 +92,8 @@
 
 /* ADC attributes.*/
 #define STM32_HAS_ADC1                      TRUE
-#define STM32_ADC1_HANDLER                  Vector70
-#define STM32_ADC1_NUMBER                   12
+#define STM32_ADC_SUPPORTS_PRESCALER        TRUE
+#define STM32_ADC_SUPPORTS_OVERSAMPLING     TRUE
 
 #define STM32_HAS_ADC2                      FALSE
 #define STM32_HAS_ADC3                      FALSE
@@ -94,35 +114,20 @@
 #define STM32_ADVANCED_DMA                  TRUE
 #define STM32_DMA_SUPPORTS_DMAMUX           TRUE
 #define STM32_DMA_SUPPORTS_CSELR            FALSE
-
 #define STM32_DMA1_NUM_CHANNELS             7
-#define STM32_DMA1_CH1_HANDLER              Vector64
-#define STM32_DMA1_CH23_HANDLER             Vector68
-#define STM32_DMA1_CH4567_HANDLER           Vector6C
-#define STM32_DMA1_CH1_NUMBER               9
-#define STM32_DMA1_CH23_NUMBER              10
-#define STM32_DMA1_CH4567_NUMBER            11
-
 #define STM32_DMA2_NUM_CHANNELS             0
 
 /* ETH attributes.*/
 #define STM32_HAS_ETH                       FALSE
 
 /* EXTI attributes.*/
+#define STM32_EXTI_TYPE                     1
+#define STM32_EXTI_HAS_GROUP2               FALSE
 #define STM32_EXTI_NUM_LINES                16
 #define STM32_EXTI_IMR1_MASK                0xFFF80000U
 
-#define STM32_EXTI_LINE01_HANDLER           Vector54
-#define STM32_EXTI_LINE23_HANDLER           Vector58
-#define STM32_EXTI_LINE4_15_HANDLER         Vector5C
-#define STM32_EXTI_LINE16_HANDLER           Vector44
-#define STM32_EXTI_LINE1921_HANDLER         Vector48
-
-#define STM32_EXTI_LINE01_NUMBER            5
-#define STM32_EXTI_LINE23_NUMBER            6
-#define STM32_EXTI_LINE4_15_NUMBER          7
-#define STM32_EXTI_LINE16_NUMBER            1
-#define STM32_EXTI_LINE1921_NUMBER          2
+/* Flash attributes.*/
+#define STM32_FLASH_NUMBER_OF_BANKS         1
 
 /* GPIO attributes.*/
 #define STM32_HAS_GPIOA                     TRUE
@@ -259,15 +264,15 @@
 #endif /* defined(STM32G070xx) */
 
 /*===========================================================================*/
-/* STM32G070xx.                                                              */
+/* STM32G071xx STM32G081xx.                                                  */
 /*===========================================================================*/
 
 #if defined(STM32G071xx) || defined(STM32G081xx)
 
 /* ADC attributes.*/
 #define STM32_HAS_ADC1                      TRUE
-#define STM32_ADC1_HANDLER                  Vector70
-#define STM32_ADC1_NUMBER                   12
+#define STM32_ADC_SUPPORTS_PRESCALER        TRUE
+#define STM32_ADC_SUPPORTS_OVERSAMPLING     TRUE
 
 #define STM32_HAS_ADC2                      FALSE
 #define STM32_HAS_ADC3                      FALSE
@@ -288,36 +293,21 @@
 #define STM32_ADVANCED_DMA                  TRUE
 #define STM32_DMA_SUPPORTS_DMAMUX           TRUE
 #define STM32_DMA_SUPPORTS_CSELR            FALSE
-
 #define STM32_DMA1_NUM_CHANNELS             7
-#define STM32_DMA1_CH1_HANDLER              Vector64
-#define STM32_DMA1_CH23_HANDLER             Vector68
-#define STM32_DMA1_CH4567_HANDLER           Vector6C
-#define STM32_DMA1_CH1_NUMBER               9
-#define STM32_DMA1_CH23_NUMBER              10
-#define STM32_DMA1_CH4567_NUMBER            11
-
 #define STM32_DMA2_NUM_CHANNELS             0
 
 /* ETH attributes.*/
 #define STM32_HAS_ETH                       FALSE
 
 /* EXTI attributes.*/
+#define STM32_EXTI_TYPE                     1
+#define STM32_EXTI_HAS_GROUP2               FALSE
 #define STM32_EXTI_NUM_LINES                33
 #define STM32_EXTI_IMR1_MASK                0xFFF80000U
 #define STM32_EXTI_IMR2_MASK                0xFFFFFFFFU
 
-#define STM32_EXTI_LINE01_HANDLER           Vector54
-#define STM32_EXTI_LINE23_HANDLER           Vector58
-#define STM32_EXTI_LINE4_15_HANDLER         Vector5C
-#define STM32_EXTI_LINE16_HANDLER           Vector44
-#define STM32_EXTI_LINE1921_HANDLER         Vector48
-
-#define STM32_EXTI_LINE01_NUMBER            5
-#define STM32_EXTI_LINE23_NUMBER            6
-#define STM32_EXTI_LINE4_15_NUMBER          7
-#define STM32_EXTI_LINE16_NUMBER            1
-#define STM32_EXTI_LINE1921_NUMBER          2
+/* Flash attributes.*/
+#define STM32_FLASH_NUMBER_OF_BANKS         1
 
 /* GPIO attributes.*/
 #define STM32_HAS_GPIOA                     TRUE
@@ -454,7 +444,7 @@
 /* DCMI attributes.*/
 #define STM32_HAS_DCMI                      FALSE
 
-#endif /* defined(STM32G070xx) */
+#endif /* defined(STM32G071xx) || defined(STM32G081xx) */
 
 /** @} */
 

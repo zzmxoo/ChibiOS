@@ -88,6 +88,7 @@ thread_t *nil_find_thread(tstate_t state, void *p) {
  * @param[in] cnt       number of threads to be readied as a negative number,
  *                      non negative numbers are ignored
  * @param[in] msg       the wakeup message
+ * @return              The number of readied threads.
  *
  * @notapi
  */
@@ -272,25 +273,13 @@ void chDbgCheckClassS(void) {
  * @special
  */
 void chSysInit(void) {
-  const thread_config_t *tcp;
+  const thread_descriptor_t *tdp;
+
+  /* Optional library modules.*/
+  _oslib_init();
 
   /* Architecture layer initialization.*/
   port_init();
-
-  /* Memory core initialization, if enabled.*/
-#if CH_CFG_USE_MEMCORE == TRUE
-  _core_init();
-#endif
-
-  /* Heap initialization, if enabled.*/
-#if CH_CFG_USE_HEAP == TRUE
-  _heap_init();
-#endif
-
-  /* Factory initialization, if enabled.*/
-#if CH_CFG_USE_FACTORY == TRUE
-  _factory_init();
-#endif
 
   /* System initialization hook.*/
   CH_CFG_SYSTEM_INIT_HOOK();
@@ -314,11 +303,11 @@ void chSysInit(void) {
 
 #if CH_CFG_AUTOSTART_THREADS == TRUE
   /* Iterates through the list of threads to be auto-started.*/
-  tcp = nil_thd_configs;
+  tdp = nil_thd_configs;
   do {
-    chThdCreateI(tcp);
-    tcp++;
-  } while (tcp->funcp != NULL);
+    (void) chThdCreateI(tdp);
+    tdp++;
+  } while (tdp->funcp != NULL);
 #endif
 
   /* Starting the dance.*/
@@ -381,10 +370,13 @@ void chSysTimerHandlerI(void) {
         /* Timeout on queues/semaphores requires a special handling because
            the counter must be incremented.*/
         /*lint -save -e9013 [15.7] There is no else because it is not needed.*/
+#if CH_CFG_USE_SEMAPHORES == TRUE
         if (NIL_THD_IS_WTQUEUE(tp)) {
           tp->u1.semp->cnt++;
         }
-        else if (NIL_THD_IS_SUSPENDED(tp)) {
+        else
+#endif
+        if (NIL_THD_IS_SUSPENDED(tp)) {
           *tp->u1.trp = NULL;
         }
         /*lint -restore*/
@@ -539,8 +531,8 @@ void chSysRestoreStatusX(syssts_t sts) {
  * @details This function verifies if the current realtime counter value
  *          lies within the specified range or not. The test takes care
  *          of the realtime counter wrapping to zero on overflow.
- * @note    When start==end then the function returns always true because the
- *          whole time range is specified.
+ * @note    When start==end then the function returns always false because a
+ *          null time range is specified.
  * @note    This function is only available if the port layer supports the
  *          option @p PORT_SUPPORTS_RT.
  *
@@ -554,7 +546,8 @@ void chSysRestoreStatusX(syssts_t sts) {
  */
 bool chSysIsCounterWithinX(rtcnt_t cnt, rtcnt_t start, rtcnt_t end) {
 
-  return (bool)((cnt - start) < (end - start));
+  return (bool)(((rtcnt_t)cnt - (rtcnt_t)start) <
+                ((rtcnt_t)end - (rtcnt_t)start));
 }
 
 /**
@@ -735,31 +728,50 @@ msg_t chSchGoSleepTimeoutS(tstate_t newstate, sysinterval_t timeout) {
 }
 
 /**
+ * @brief   Checks if the specified time is within the specified time range.
+ * @note    When start==end then the function returns always false because the
+ *          time window has zero size.
+ *
+ * @param[in] time      the time to be verified
+ * @param[in] start     the start of the time window (inclusive)
+ * @param[in] end       the end of the time window (non inclusive)
+ * @retval true         current time within the specified time window.
+ * @retval false        current time not within the specified time window.
+ *
+ * @xclass
+ */
+bool chTimeIsInRangeX(systime_t time, systime_t start, systime_t end) {
+
+  return (bool)((systime_t)((systime_t)(time) - (systime_t)(start)) <
+                (systime_t)((systime_t)(end) - (systime_t)(start)));
+}
+
+/**
  * @brief   Creates a new thread into a static memory area.
  * @details The new thread is initialized and make ready to execute.
  * @note    A thread can terminate by calling @p chThdExit() or by simply
  *          returning from its main function.
  *
- * @param[out] tcp      pointer to the thread configuration structure
+ * @param[out] tdp      pointer to the thread descriptor structure
  * @return              The pointer to the @p thread_t structure allocated for
  *                      the thread.
  *
  * @iclass
  */
-thread_t *chThdCreateI(const thread_config_t *tcp) {
+thread_t *chThdCreateI(const thread_descriptor_t *tdp) {
   thread_t *tp;
 
-  chDbgCheck((tcp->prio < CH_CFG_MAX_THREADS) &&
-             (tcp->wbase != NULL) &&
-             MEM_IS_ALIGNED(tcp->wbase, PORT_WORKING_AREA_ALIGN) &&
-             (tcp->wend > tcp->wbase) &&
-             MEM_IS_ALIGNED(tcp->wbase, PORT_STACK_ALIGN) &&
-             (tcp->funcp != NULL));
+  chDbgCheck((tdp->prio < (tprio_t)CH_CFG_MAX_THREADS) &&
+             (tdp->wbase != NULL) &&
+             MEM_IS_ALIGNED(tdp->wbase, PORT_WORKING_AREA_ALIGN) &&
+             (tdp->wend > tdp->wbase) &&
+             MEM_IS_ALIGNED(tdp->wbase, PORT_STACK_ALIGN) &&
+             (tdp->funcp != NULL));
 
   chDbgCheckClassI();
 
   /* Pointer to the thread slot to be used.*/
-  tp = &nil.threads[tcp->prio];
+  tp = &nil.threads[tdp->prio];
   chDbgAssert(NIL_THD_IS_WTSTART(tp) || NIL_THD_IS_FINAL(tp),
               "priority slot taken");
 
@@ -767,11 +779,11 @@ thread_t *chThdCreateI(const thread_config_t *tcp) {
   tp->epmask = (eventmask_t)0;
 #endif
 #if CH_DBG_ENABLE_STACK_CHECK == TRUE
-  tp->wabase = (stkalign_t *)tcp->wbase;
+  tp->wabase = (stkalign_t *)tdp->wbase;
 #endif
 
   /* Port dependent thread initialization.*/
-  PORT_SETUP_CONTEXT(tp, tcp->wbase, tcp->wend, tcp->funcp, tcp->arg);
+  PORT_SETUP_CONTEXT(tp, tdp->wbase, tdp->wend, tdp->funcp, tdp->arg);
 
   /* Initialization hook.*/
   CH_CFG_THREAD_EXT_INIT_HOOK(tp);
@@ -786,17 +798,17 @@ thread_t *chThdCreateI(const thread_config_t *tcp) {
  * @note    A thread can terminate by calling @p chThdExit() or by simply
  *          returning from its main function.
  *
- * @param[out] tcp      pointer to the thread configuration structure
+ * @param[out] tdp      pointer to the thread descriptor structure
  * @return              The pointer to the @p thread_t structure allocated for
  *                      the thread.
  *
  * @api
  */
-thread_t *chThdCreate(const thread_config_t *tcp) {
+thread_t *chThdCreate(const thread_descriptor_t *tdp) {
   thread_t *tp;
 
   chSysLock();
-  tp = chThdCreateI(tcp);
+  tp = chThdCreateI(tdp);
   chSchRescheduleS();
   chSysUnlock();
 
@@ -842,7 +854,8 @@ void chThdExit(msg_t msg) {
 #endif
 
   /* Going into final state with exit message stored.*/
-  chSchGoSleepTimeoutS(NIL_STATE_FINAL, msg);
+  nil.current->u1.msg = msg;
+  (void) chSchGoSleepTimeoutS(NIL_STATE_FINAL, TIME_INFINITE);
 
   /* The thread never returns here.*/
   chDbgAssert(false, "zombies apocalypse");
